@@ -1,0 +1,159 @@
+//@version=5
+strategy("Supertrend v2", overlay = true, format=format.price, precision=2)
+
+//**** INPUTS **** {
+
+// Supertrend
+length = input(27, title="ATR Period", group='ATR Settings')
+src = input(hl2, title="Source", group='ATR Settings')
+multiplier = input.float(3.9, title="ATR Multiplier", step=0.1, group='ATR Settings')
+changeATR= input(true, title="Change ATR calculation method ?", group='ATR Settings')
+
+showSignals = input(true, title="Show Buy & Sell signals", group='Signal Settings')
+highlighting = input(true, title="Turn Highlighter On/Off ?")
+
+// RSI
+smoothK = input.int(5, "K", minval=1, group='RSI Settings')
+smoothD = input.int(5, "D", minval=1, group='RSI Settings')
+lengthRSI = input.int(14, "RSI Length", minval=1, group='RSI Settings')
+lengthStoch = input.int(14, "Stochastic Length", minval=1, group='RSI Settings')
+rsi_src = input(close, title="RSI Source")
+show_stoch_rsi = input(false, title='Show stoch RSI')
+
+// Trade Entry Signal Condtions
+long_entry_rsa_band_threshold = input(10, title='RSI Bands Long Threshold', group='Trade Entry Conditons')
+long_entry_abs_value_threshold = input(3, title='RSI Long ABS Value Threshold', group='Trade Entry Conditons')
+
+short_entry_rsa_band_threshold = input(90, title='RSI Bands Short Threshold', group='Trade Entry Conditons')
+short_entry_abs_value_threshold = input(3, title='RSI Short ABS Value Threshold', group='Trade Entry Conditons')
+
+long_amount = input(100, title='Long Amount')
+short_amount = input(100, title='Short Amount')
+// **** }
+
+// **** Stoch RSI ***{
+rsi = ta.rsi(rsi_src, lengthRSI)
+k = ta.sma(ta.stoch(rsi, rsi, rsi, lengthStoch), smoothK)
+d = ta.sma(k, smoothD)
+
+// ****}
+
+// **** SMA **** {
+sma = ta.sma(src, length)
+
+// **** }
+
+// **** ATR **** {
+atr = changeATR ? ta.atr(length) : sma
+
+// **** }
+
+// **** UPTREND **** {
+up = src - (multiplier * atr)
+prev_up = nz(up[1], up)
+up := close[1] > prev_up ? math.max(up, prev_up) : up
+
+// **** }
+
+// **** DOWNTREND **** {
+dn = src + (multiplier * atr)
+prev_dn = nz(dn[1], dn)
+dn := close[1] < prev_dn ? math.min(dn, prev_dn) : dn
+
+// **** }
+
+// **** TREND DIRECTION **** {
+trend = 1  // 1 is for uptrend and -1 is for downtrend
+trend := nz(trend[1], trend)
+trend := trend == -1 and close > prev_dn ? 1 : trend == 1 and close < prev_up ? -1 : trend
+
+// **** }
+
+// **** TRADE SIGNALS **** {
+buySignal = trend == 1 and trend[1] == -1
+sellSignal = trend == -1 and trend[1] == 1
+
+longSignal = trend == 1 and (k < long_entry_rsa_band_threshold) and ( d < long_entry_rsa_band_threshold) and (math.abs(k-d) < long_entry_abs_value_threshold)
+
+shortSignal = trend == -1 and (k > short_entry_rsa_band_threshold and d > short_entry_rsa_band_threshold) and (math.abs(k-d) < short_entry_abs_value_threshold)
+
+var previous_trade = ""
+
+changeCond = trend != trend[1]
+
+exit_long = false
+
+exit_short = false
+
+if (changeCond)
+    exit_short := previous_trade == "Sell" 
+    exit_long :=  previous_trade == "Buy" 
+    previous_trade := ""
+
+if(longSignal and previous_trade == "Buy")
+    longSignal := false
+    
+if(longSignal and previous_trade != "Buy")
+    previous_trade := "Buy"
+
+if(shortSignal and previous_trade == "Sell")
+    shortSignal := false
+    
+if(shortSignal and previous_trade != "Sell")
+    previous_trade := "Sell"
+    
+ 
+// **** }
+
+// **** PLOTS **** {
+
+// Stoch RSI
+
+plot(show_stoch_rsi ? k : na, "K", color=#2962FF)
+plot(show_stoch_rsi ? d : na, "D", color=#FF6D00)
+h0 = hline(90, "Upper Band", color=show_stoch_rsi ? #787B86: na)
+h1 = hline(10, "Lower Band", color=show_stoch_rsi ? #787B86 : na)
+
+fill(h0, h1, color=show_stoch_rsi ? color.rgb(33, 150, 243, 90): na, title="Background")
+
+// Supertrend
+upPlot = plot(trend == 1 ? up : na, title="Up Trend", style=plot.style_linebr, linewidth=2, color=color.new(color.green, 50))
+
+// plotshape(buySignal ? up : na, title="UpTrend Begins", location=location.absolute, style=shape.circle, size=size.tiny, color=color.new(color.green, 50))
+// plotshape(buySignal and showSignals ? up : na, title="Buy", text="Buy", location=location.absolute, style=shape.labelup, size=size.tiny, color=color.new(color.green, 50), textcolor=color.white)
+
+
+dnPlot = plot(trend == 1 ? na : dn, title="Down Trend", style=plot.style_linebr, linewidth=2, color=color.new(color.red, 50))
+
+// plotshape(sellSignal ? dn : na, title="DownTrend Begins", location=location.absolute, style=shape.circle, size=size.tiny, color=color.new(color.red, 50))
+// plotshape(sellSignal and showSignals ? dn : na, title="Sell", text="Sell", location=location.absolute, style=shape.labeldown, size=size.tiny, color=color.new(color.red,  transp=0), textcolor=color.white)
+mPlot = plot(ohlc4, title="", style=plot.style_circles, linewidth=0)
+
+
+// Supertrend + stoch RSI
+plotshape(longSignal and showSignals ? up : na, title="Buy", text="Buy", location=location.absolute, style=shape.labelup, size=size.tiny, color=color.new(color.green, 50), textcolor=color.white)
+plotshape(shortSignal and showSignals ? dn : na, title="Sell", text="Sell", location=location.absolute, style=shape.labeldown, size=size.tiny, color=color.new(color.red,  transp=0), textcolor=color.white)
+plotshape(exit_long and showSignals ? dn : na, title="Exit Buy", text="Exit Buy", location=location.absolute, style=shape.labeldown, size=size.tiny, color=color.new(color.green, 20), textcolor=color.white)
+plotshape(exit_short and showSignals ? up : na, title="Exit Sell", text="Exit Sell", location=location.absolute, style=shape.labelup, size=size.tiny, color=color.new(color.red,  20), textcolor=color.white)
+
+strategy.entry("Buy", strategy.long, long_amount, when=longSignal)
+strategy.close("Buy", qty=long_amount, when=exit_long)
+strategy.entry("Sell", strategy.short, short_amount, when=shortSignal)
+strategy.close("Sell", qty=short_amount, when=exit_short)
+// ****}
+
+// **** FILLS **** {
+
+fill(mPlot, upPlot, title="UpTrend Highligter", color = highlighting ? (trend == 1 ? color.new(color.green, 80) : color.new(color.white, 100)) : color.new(color.white, 100))
+fill(mPlot, dnPlot, title="DownTrend Highligter", color = highlighting ? (trend == -1 ? color.new(color.red, 80) : color.new(color.white, 100)) : color.new(color.white, 100))
+
+// **** }
+
+// **** ALERTS ***{
+alertcondition(buySignal, title="SuperTrend Buy", message="SuperTrend Buy!")
+alertcondition(sellSignal, title="SuperTrend Sell", message="SuperTrend Sell!")
+
+alertcondition(changeCond, title="SuperTrend Direction Change", message="SuperTrend has changed direction!")
+
+
+// ****}
