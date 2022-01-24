@@ -27,6 +27,14 @@ long_entry_abs_value_threshold = input(3, title='RSI Long ABS Value Threshold', 
 short_entry_rsa_band_threshold = input(90, title='RSI Bands Short Threshold', group='Trade Entry Conditons')
 short_entry_abs_value_threshold = input(3, title='RSI Short ABS Value Threshold', group='Trade Entry Conditons')
 
+// === INPUT BACKTEST Range Settings ===
+fromMonth = input.int(1,  title = "From Month",  minval = 1, maxval = 12, group='Backtest Range Settings')
+fromDay   = input.int(1,    title = "From Day",    minval = 1, maxval = 31, group='Backtest Range Settings')
+fromYear  = input.int(2022, title = "From Year",   minval = 1970, group='Backtest Range Settings')
+toMonth = input.int(1,    title = "To Month",  minval = 1, maxval = 12, group='Backtest Range Settings')
+toDay   = input.int(1,    title = "To Day",    minval = 1, maxval = 31, group='Backtest Range Settings')
+toYear  = input.int(2112, title = "To Year",   minval = 1970, group='Backtest Range Settings')
+
 long_amount = input(100, title='Long Amount')
 short_amount = input(100, title='Short Amount')
 // **** }
@@ -105,6 +113,14 @@ if(shortSignal and previous_trade != "Sell")
  
 // **** }
 
+// **** {
+    
+start = timestamp(fromYear, fromMonth, fromDay, 00, 00)            // backtest start  window
+end = timestamp(toYear, toMonth, toDay, 23, 59)            // backtest end window
+window = time >= start and time <= end          // create function "within window of time"
+
+//**** }
+
 // **** PLOTS **** {
 
 // Stoch RSI
@@ -136,10 +152,10 @@ plotshape(shortSignal and showSignals ? dn : na, title="Sell", text="Sell", loca
 plotshape(exit_long and showSignals ? dn : na, title="Exit Buy", text="Exit Buy", location=location.absolute, style=shape.labeldown, size=size.tiny, color=color.new(color.green, 20), textcolor=color.white)
 plotshape(exit_short and showSignals ? up : na, title="Exit Sell", text="Exit Sell", location=location.absolute, style=shape.labelup, size=size.tiny, color=color.new(color.red,  20), textcolor=color.white)
 
-strategy.entry("Buy", strategy.long, long_amount, when=longSignal)
-strategy.close("Buy", qty=long_amount, when=exit_long)
-strategy.entry("Sell", strategy.short, short_amount, when=shortSignal)
-strategy.close("Sell", qty=short_amount, when=exit_short)
+strategy.entry("Buy", strategy.long, long_amount, when=longSignal and window)
+strategy.close("Buy", qty=long_amount, when=exit_long and window)
+strategy.entry("Sell", strategy.short, short_amount, when=shortSignal and window)
+strategy.close("Sell", qty=short_amount, when=exit_short and window)
 // ****}
 
 // **** FILLS **** {
