@@ -19,9 +19,10 @@ router.post(
     let { side, symbol } = req.body;
 
     try {
-      if (['BUY', 'SELL'].includes(side)) {
+      if (['BUY', 'SELL'].includes(side?.toUppeCase())) {
         // @notice Check whether the market volume and price change in the past 24hrs meets threshold
         const pair = await cryptoMeterWrapper.checkPairToTrade(
+          side,
           symbol.replace('USDT', '-USDT')
         );
 

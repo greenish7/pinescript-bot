@@ -33,14 +33,19 @@ class CryptoMeterWrapper {
     }
   };
 
-  checkPairToTrade = async (_pair: string) => {
+  checkPairToTrade = async (side: string, _pair: string) => {
     await this._fetch();
     for (let i = 0; i < this._binance_futures.length; i++) {
       let pair = this._binance_futures[i];
       if (pair.pair.includes(_pair)) {
         if (
-          parseFloat(pair.volume) >= config.VOLUME_USD_THRESHOLD &&
-          parseFloat(pair.change_24h) >= config.CHANGE_24H_THRESHOLD
+          (parseFloat(pair.volume) >= config.VOLUME_USD_THRESHOLD &&
+            parseFloat(pair.change_24h) >= config.CHANGE_24H_THRESHOLD &&
+            ['BUY', 'LONG'].includes(side.toUpperCase())) ||
+          (Math.abs(parseFloat(pair.volume)) >= config.VOLUME_USD_THRESHOLD &&
+            Math.abs(parseFloat(pair.change_24h)) >=
+              config.CHANGE_24H_THRESHOLD &&
+            ['SELL', 'SHORT'].includes(side.toUpperCase()))
         ) {
           return pair;
         }
